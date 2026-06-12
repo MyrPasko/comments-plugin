@@ -1,6 +1,7 @@
 package com.myrpasko.commentsplugin.diff
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.ui.components.JBLabel
@@ -17,7 +18,7 @@ import javax.swing.JButton
 class DiffActionPanel(
     project: Project,
     private val store: ReviewCommentStore,
-) : JBPanel<DiffActionPanel>(FlowLayout(FlowLayout.RIGHT, 8, 6)), ReviewCommentStore.Listener {
+) : JBPanel<DiffActionPanel>(FlowLayout(FlowLayout.RIGHT, 8, 6)), ReviewCommentStore.Listener, Disposable {
     private val countLabel = JBLabel()
 
     init {
@@ -42,6 +43,10 @@ class DiffActionPanel(
 
     override fun commentsChanged() {
         updateCount()
+    }
+
+    override fun dispose() {
+        store.removeListener(this)
     }
 
     private fun updateCount() {

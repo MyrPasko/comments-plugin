@@ -21,9 +21,9 @@ Fix these comments:
 
 ## Current Scope
 
-MVP support is intentionally narrow:
+MVP support is intentionally narrow, but the local diff integration now covers the main side-by-side text diff entry points used for local Git review:
 
-- supported diff viewer: side-by-side text diff (`SimpleDiffViewer`)
+- supported diff viewers: compatible local side-by-side text diff viewers, including the Commit/Changes side-by-side flow when the IDE exposes changed ranges through the standard diff APIs
 - prompt prefix setting: application-scoped
 - comment persistence: in-memory only for the current IDE session
 
@@ -73,10 +73,13 @@ If `LOCAL_IDE_PATH` is not set, the Gradle build falls back to a downloaded Inte
 - settings default value
 - settings update behavior
 - store upsert/remove/discard behavior
+- adapter classification for supported vs unsupported diff viewers
+- action-surface fallback selection for bottom vs toolbar placement
 
 ## Known Limitations
 
 - Unified diff view is not implemented yet.
+- Some local side-by-side diff viewers may still be unsupported if the IDE does not expose changed-line ranges through the text diff APIs used by this plugin.
 - Existing comments are not rendered as persistent inline badges after creation.
 - Terminal insertion targets compatible classic shell-backed terminal widgets only.
 - Review comments are not persisted across IDE restarts.
