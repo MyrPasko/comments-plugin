@@ -1,0 +1,24 @@
+<idea-plugin>
+    <id>com.myrpasko.commentsplugin</id>
+    <name>Comments Plugin</name>
+    <vendor email="myrpasko@example.com">MyrPasko</vendor>
+
+    <description><![CDATA[
+    Adds inline review-style comments to supported JetBrains diff viewers and sends the generated prompt to the integrated terminal.
+    ]]></description>
+
+    <idea-version since-build="252"/>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
+    <depends>org.jetbrains.plugins.terminal</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationConfigurable
+                parentId="tools"
+                instance="com.myrpasko.commentsplugin.settings.PromptSettingsConfigurable"
+                id="com.myrpasko.commentsplugin.settings"
+                displayName="Comments Plugin"/>
+        <diff.DiffExtension implementation="com.myrpasko.commentsplugin.diff.ReviewDiffExtension"/>
+    </extensions>
+</idea-plugin>
