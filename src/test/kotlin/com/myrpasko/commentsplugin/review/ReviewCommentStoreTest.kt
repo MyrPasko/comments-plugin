@@ -1,6 +1,5 @@
 package com.myrpasko.commentsplugin.review
 
-import com.myrpasko.commentsplugin.model.CommentLocation
 import com.myrpasko.commentsplugin.model.ReviewComment
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -8,37 +7,36 @@ import kotlin.test.assertNull
 
 class ReviewCommentStoreTest {
     @Test
-    fun `upsert stores and replaces comments by location id`() {
+    fun `upsert stores and replaces comments by anchor id`() {
         val store = ReviewCommentStore()
-        val location = CommentLocation("src/App.kt", 12)
+        val commentId = "src/App.kt:RIGHT:12:11"
 
-        store.upsert(ReviewComment(location.id(), location.filePath, location.lineNumber, "First"))
-        store.upsert(ReviewComment(location.id(), location.filePath, location.lineNumber, "Updated"))
+        store.upsert(ReviewComment(id = commentId, filePath = "src/App.kt", lineNumber = 12, commentText = "First"))
+        store.upsert(ReviewComment(id = commentId, filePath = "src/App.kt", lineNumber = 12, commentText = "Updated"))
 
         assertEquals(1, store.getAll().size)
-        assertEquals("Updated", store.find(location)?.commentText)
+        assertEquals("Updated", store.find(commentId)?.commentText)
     }
 
     @Test
     fun `discard all clears comments`() {
         val store = ReviewCommentStore()
 
-        store.upsert(ReviewComment("a", "src/A.kt", 1, "One"))
-        store.upsert(ReviewComment("b", "src/B.kt", 2, "Two"))
+        store.upsert(ReviewComment(id = "a", filePath = "src/A.kt", lineNumber = 1, commentText = "One"))
+        store.upsert(ReviewComment(id = "b", filePath = "src/B.kt", lineNumber = 2, commentText = "Two"))
         store.discardAll()
 
         assertEquals(emptyList(), store.getAll())
     }
 
     @Test
-    fun `remove deletes specific location`() {
+    fun `remove deletes specific comment id`() {
         val store = ReviewCommentStore()
-        val location = CommentLocation("src/App.kt", 7)
+        val commentId = "src/App.kt:LEFT:7:6"
 
-        store.upsert(ReviewComment(location.id(), location.filePath, location.lineNumber, "Remove me"))
-        store.remove(location)
+        store.upsert(ReviewComment(id = commentId, filePath = "src/App.kt", lineNumber = 7, commentText = "Remove me"))
+        store.remove(commentId)
 
-        assertNull(store.find(location))
+        assertNull(store.find(commentId))
     }
 }
-

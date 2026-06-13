@@ -3,7 +3,7 @@
 ## Current Baseline
 
 - `main` contains the original MVP merged from PR `#1`.
-- The current `main` working tree supports `SimpleDiffViewer` plus compatible local side-by-side change-list diff viewers.
+- The current `main` working tree supports `SimpleDiffViewer` plus compatible local side-by-side change-list diff viewers, with comments on visible current/right-side lines and deleted left-side lines.
 - Installable plugin packaging is verified through `buildPlugin` against the local WebStorm runtime.
 
 ## Completed Slices
@@ -11,11 +11,13 @@
 - current-IDE portability and installation
 - local side-by-side diff checkpoint landing
 - lightweight line-anchored comment composer and submit cleanup
+- side-by-side any-line coverage on the current/right side plus deleted-line anchors on the left
 
 ## Slice 1. Terminal Compatibility Expansion
 
 - inspect the active terminal widget types exposed by current PyCharm/WebStorm builds
 - extend widget resolution beyond classic shell-backed terminals if a safe API path exists
+- ensure prompt insertion targets only the selected terminal tab and otherwise falls back safely to clipboard
 - keep clipboard fallback as the default safe path for unsupported terminals
 - add regression coverage for terminal detection and fallback behavior
 

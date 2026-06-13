@@ -1,6 +1,7 @@
 package com.myrpasko.commentsplugin.diff
 
 import com.intellij.diff.FrameDiffTool
+import com.intellij.diff.fragments.LineFragment
 import com.intellij.diff.tools.simple.SimpleDiffChange
 import com.intellij.diff.tools.simple.SimpleDiffViewer
 import com.intellij.diff.tools.util.side.TwosideTextDiffViewer
@@ -14,12 +15,11 @@ import javax.swing.JComponent
 
 interface DiffViewerAdapter {
     val viewer: FrameDiffTool.DiffViewer
-    val rightEditor: EditorEx
     val filePath: String
     val primaryComponent: JComponent
     val viewerKind: String
 
-    fun collectChangedLines(): Set<Int>
+    fun collectCommentAnchors(): Set<DiffCommentAnchor>
 }
 
 enum class DiffViewerSupportKind {
@@ -78,22 +78,26 @@ object DiffViewerAdapters {
     }
 
     private fun createSimpleAdapter(viewer: SimpleDiffViewer, filePath: String): DiffViewerAdapter {
+        val leftEditor = viewer.getEditor(Side.LEFT)
+        val rightEditor = viewer.getEditor(Side.RIGHT)
         return AdapterImpl(
             viewer = viewer,
-            rightEditor = viewer.getEditor(Side.RIGHT),
             filePath = filePath,
             primaryComponent = viewer.component,
             viewerKind = viewer.javaClass.name,
-            changedLinesProvider = {
-                viewer.getDiffChanges()
-                    .asSequence()
-                    .filter(SimpleDiffChange::isValid)
-                    .flatMap { change ->
-                        val start = change.getStartLine(Side.RIGHT)
-                        val end = change.getEndLine(Side.RIGHT)
-                        (start until end).asSequence()
-                    }
-                    .toSet()
+            anchorsProvider = {
+                buildAllRightSideAnchors(filePath, rightEditor) +
+                    viewer.getDiffChanges()
+                        .asSequence()
+                        .filter(SimpleDiffChange::isValid)
+                        .flatMap { change ->
+                            buildDeletedAnchors(
+                                filePath = filePath,
+                                leftEditor = leftEditor,
+                                fragment = change.fragment,
+                            ).asSequence()
+                        }
+                        .toSet()
             },
         )
     }
@@ -102,44 +106,129 @@ object DiffViewerAdapters {
         viewer: TwosideTextDiffViewer,
         filePath: String,
     ): DiffViewerAdapter? {
+        val leftEditor = viewer.getEditor(Side.LEFT)
+        val rightEditor = viewer.getEditor(Side.RIGHT)
         val diffChangesMethod = findMethod(viewer.javaClass, "getDiffChanges") ?: return null
 
         return AdapterImpl(
             viewer = viewer,
-            rightEditor = viewer.getEditor(Side.RIGHT),
             filePath = filePath,
             primaryComponent = viewer.component,
             viewerKind = viewer.javaClass.name,
-            changedLinesProvider = {
-                collectReflectiveChangedLines(viewer, diffChangesMethod)
+            anchorsProvider = {
+                buildAllRightSideAnchors(filePath, rightEditor) +
+                    collectReflectiveDeletedAnchors(
+                        viewer = viewer,
+                        diffChangesMethod = diffChangesMethod,
+                        filePath = filePath,
+                        viewerKind = viewer.javaClass.name,
+                        leftEditor = leftEditor,
+                    )
             },
         )
     }
 
-    private fun collectReflectiveChangedLines(
+    private fun collectReflectiveDeletedAnchors(
         viewer: TwosideTextDiffViewer,
         diffChangesMethod: Method,
-    ): Set<Int> {
+        filePath: String,
+        viewerKind: String,
+        leftEditor: EditorEx,
+    ): Set<DiffCommentAnchor> {
         val changeList = diffChangesMethod.invoke(viewer) as? Iterable<*> ?: return emptySet()
         val firstChange = changeList.firstOrNull() ?: return emptySet()
         val accessors = ReflectiveChangeAccessors.from(firstChange) ?: return emptySet()
-        return buildReflectiveChangedLines(changeList, accessors)
-    }
-
-    private fun buildReflectiveChangedLines(
-        changeList: Iterable<*>,
-        accessors: ReflectiveChangeAccessors,
-    ): Set<Int> {
         return changeList
             .asSequence()
             .filterNotNull()
             .filter(accessors::isValid)
             .flatMap { change ->
-                val start = accessors.getStartLine(change)
-                val end = accessors.getEndLine(change)
-                (start until end).asSequence()
+                DiffCommentAnchorPlanner.planSideBySide(
+                    oldStart = accessors.getStartLine(change, Side.LEFT),
+                    oldEnd = accessors.getEndLine(change, Side.LEFT),
+                    newStart = accessors.getStartLine(change, Side.RIGHT),
+                    newEnd = accessors.getEndLine(change, Side.RIGHT),
+                )
+                    .asSequence()
+                    .filter { plan -> plan.side == DiffEditorSide.LEFT }
+                    .map { plan ->
+                        plan.toAnchor(
+                            filePath = filePath,
+                            leftEditor = leftEditor,
+                            rightEditor = leftEditor,
+                        )
+                    }
             }
             .toSet()
+    }
+
+    private fun buildAllRightSideAnchors(
+        filePath: String,
+        rightEditor: EditorEx,
+    ): Set<DiffCommentAnchor> {
+        val lineCount = rightEditor.document.lineCount
+        return (0 until lineCount)
+            .map { line ->
+                DiffCommentAnchor(
+                    id = buildAnchorId(filePath, DiffEditorSide.RIGHT, line + 1, line),
+                    editor = rightEditor,
+                    editorLine = line,
+                    filePath = filePath,
+                    lineNumber = line + 1,
+                )
+            }
+            .toSet()
+    }
+
+    private fun buildDeletedAnchors(
+        filePath: String,
+        leftEditor: EditorEx,
+        fragment: LineFragment,
+    ): Set<DiffCommentAnchor> {
+        return DiffCommentAnchorPlanner.planSideBySide(
+            oldStart = fragment.startLine1,
+            oldEnd = fragment.endLine1,
+            newStart = fragment.startLine2,
+            newEnd = fragment.endLine2,
+        )
+            .asSequence()
+            .filter { plan -> plan.side == DiffEditorSide.LEFT }
+            .map { plan ->
+                plan.toAnchor(
+                    filePath = filePath,
+                    leftEditor = leftEditor,
+                    rightEditor = leftEditor,
+                )
+            }
+            .toSet()
+    }
+
+    private fun DiffCommentAnchorPlan.toAnchor(
+        filePath: String,
+        leftEditor: EditorEx,
+        rightEditor: EditorEx,
+    ): DiffCommentAnchor {
+        val editor = when (side) {
+            DiffEditorSide.LEFT -> leftEditor
+            DiffEditorSide.RIGHT -> rightEditor
+        }
+        return DiffCommentAnchor(
+            id = buildAnchorId(filePath, side, lineNumber, editorLine),
+            editor = editor,
+            editorLine = editorLine,
+            filePath = filePath,
+            lineNumber = lineNumber,
+            lineLabel = lineLabel,
+        )
+    }
+
+    private fun buildAnchorId(
+        filePath: String,
+        side: DiffEditorSide,
+        lineNumber: Int,
+        editorLine: Int,
+    ): String {
+        return "$filePath:${side.name}:$lineNumber:$editorLine"
     }
 
     private fun findMethod(type: Class<*>, name: String): Method? {
@@ -158,13 +247,12 @@ object DiffViewerAdapters {
 
     private data class AdapterImpl(
         override val viewer: FrameDiffTool.DiffViewer,
-        override val rightEditor: EditorEx,
         override val filePath: String,
         override val primaryComponent: JComponent,
         override val viewerKind: String,
-        private val changedLinesProvider: () -> Set<Int>,
+        private val anchorsProvider: () -> Set<DiffCommentAnchor>,
     ) : DiffViewerAdapter {
-        override fun collectChangedLines(): Set<Int> = changedLinesProvider()
+        override fun collectCommentAnchors(): Set<DiffCommentAnchor> = anchorsProvider()
     }
 
     private data class ReflectiveChangeAccessors(
@@ -176,12 +264,12 @@ object DiffViewerAdapters {
             return (isValidMethod?.invoke(change) as? Boolean) ?: true
         }
 
-        fun getStartLine(change: Any): Int {
-            return getStartLineMethod.invoke(change, Side.RIGHT) as Int
+        fun getStartLine(change: Any, side: Side): Int {
+            return getStartLineMethod.invoke(change, side) as Int
         }
 
-        fun getEndLine(change: Any): Int {
-            return getEndLineMethod.invoke(change, Side.RIGHT) as Int
+        fun getEndLine(change: Any, side: Side): Int {
+            return getEndLineMethod.invoke(change, side) as Int
         }
 
         companion object {

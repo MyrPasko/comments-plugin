@@ -2,7 +2,6 @@ package com.myrpasko.commentsplugin.review
 
 import com.intellij.openapi.components.Service
 import com.intellij.util.EventDispatcher
-import com.myrpasko.commentsplugin.model.CommentLocation
 import com.myrpasko.commentsplugin.model.ReviewComment
 import java.util.EventListener
 
@@ -28,8 +27,8 @@ class ReviewCommentStore {
         dispatcher.multicaster.commentsChanged()
     }
 
-    fun remove(location: CommentLocation) {
-        if (commentsById.remove(location.id()) != null) {
+    fun remove(commentId: String) {
+        if (commentsById.remove(commentId) != null) {
             dispatcher.multicaster.commentsChanged()
         }
     }
@@ -42,7 +41,7 @@ class ReviewCommentStore {
         dispatcher.multicaster.commentsChanged()
     }
 
-    fun find(location: CommentLocation): ReviewComment? = commentsById[location.id()]
+    fun find(commentId: String): ReviewComment? = commentsById[commentId]
 
     fun getAll(): List<ReviewComment> = commentsById.values.toList()
 }

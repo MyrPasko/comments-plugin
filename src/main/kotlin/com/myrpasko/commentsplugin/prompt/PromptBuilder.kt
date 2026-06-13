@@ -27,7 +27,7 @@ object PromptBuilder {
 
         val normalizedPrefix = prefix.trim().ifBlank { PromptSettingsService.DEFAULT_PROMPT_PREFIX }
         val body = normalizedComments.joinToString(separator = "\n") { comment ->
-            "[${comment.filePath}:${comment.lineNumber}] - ${comment.commentText}"
+            "[${comment.filePath}:${comment.lineLabel}] - ${comment.commentText}"
         }
 
         return PromptBuildResult.Prompt(
@@ -39,4 +39,3 @@ object PromptBuilder {
         )
     }
 }
-

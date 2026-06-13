@@ -4,7 +4,7 @@ JetBrains IDE plugin prototype for pre-commit review comments on local diffs.
 
 ## What It Does
 
-- Adds a hover-triggered plus icon to changed lines in supported diff views.
+- Adds a hover-triggered plus icon to visible side-by-side diff lines in supported diff views, including deleted lines on the left side.
 - Opens a small line-anchored comment popup near the selected code change.
 - Collects comments across files in a project-scoped in-memory review session.
 - Builds a combined prompt in this format:
@@ -14,6 +14,7 @@ Fix these comments:
 
 [src/components/Button.tsx:42] - Rename this variable.
 [src/hooks/useUser.ts:18] - Handle the loading state explicitly.
+[src/api/client.ts:27 deleted] - Keep this branch or replace it with an equivalent guard.
 ```
 
 - Inserts that prompt into the active integrated terminal session.
@@ -25,6 +26,7 @@ Fix these comments:
 MVP support is still intentionally narrow, but local diff integration now covers the main side-by-side text diff entry points used for local Git review:
 
 - supported diff viewers: `SimpleDiffViewer` and compatible local side-by-side change-list diff viewers when the IDE exposes changed ranges through the standard text diff APIs
+- commentable lines: any visible line on the current/right side plus deleted lines on the left side
 - prompt prefix setting: application-scoped
 - comment persistence: in-memory only for the current IDE session
 
@@ -114,6 +116,7 @@ Install it in your IDE with `Settings/Preferences > Plugins > gear icon > Instal
 
 - Unified diff view is not implemented yet.
 - Some local side-by-side diff viewers may still be unsupported if the IDE does not expose changed-line ranges through the text diff APIs used by this plugin.
+- Deleted-line comments are represented in prompts with a `deleted` suffix rather than a richer diff identity.
 - Existing comments now stay reachable through a dedicated gutter message marker on changed lines, but the current packaged `main` build still needs manual re-verification in the IDE.
 - Terminal insertion now tries the selected frontend terminal tab first, retries through the generic `TerminalWidget` TTY-accessor path when the frontend send path is unavailable, and still falls back to clipboard copy when no compatible active session exists. Active current-IDE terminal flows still need manual re-verification after this compatibility hardening.
 - Review comments are not persisted across IDE restarts.
