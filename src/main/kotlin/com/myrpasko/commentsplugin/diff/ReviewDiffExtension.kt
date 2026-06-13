@@ -4,7 +4,6 @@ import com.intellij.diff.DiffContext
 import com.intellij.diff.DiffExtension
 import com.intellij.diff.FrameDiffTool
 import com.intellij.diff.requests.DiffRequest
-import com.intellij.diff.tools.simple.SimpleDiffViewer
 
 class ReviewDiffExtension : DiffExtension() {
     override fun onViewerCreated(
@@ -13,9 +12,6 @@ class ReviewDiffExtension : DiffExtension() {
         request: DiffRequest,
     ) {
         val project = context.project ?: return
-        if (viewer is SimpleDiffViewer) {
-            SimpleDiffReviewController.attach(project, viewer)
-        }
+        SideBySideDiffReviewController.attach(project, viewer)
     }
 }
-

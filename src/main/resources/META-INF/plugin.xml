@@ -20,5 +20,7 @@
                 id="com.myrpasko.commentsplugin.settings"
                 displayName="Comments Plugin"/>
         <diff.DiffExtension implementation="com.myrpasko.commentsplugin.diff.ReviewDiffExtension"/>
+        <com.intellij.vcs.impl.changeListDiffViewerDecorator
+                implementation="com.myrpasko.commentsplugin.diff.LocalChangeListReviewDecorator"/>
     </extensions>
 </idea-plugin>

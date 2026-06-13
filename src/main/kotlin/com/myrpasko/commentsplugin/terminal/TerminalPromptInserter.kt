@@ -3,9 +3,12 @@ package com.myrpasko.commentsplugin.terminal
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import com.intellij.terminal.JBTerminalWidget
+import com.intellij.terminal.frontend.toolwindow.TerminalToolWindowTabsManager
+import com.intellij.terminal.frontend.view.TerminalView
+import com.intellij.terminal.ui.TtyConnectorAccessor
 import com.intellij.terminal.ui.TerminalWidget
-import org.jetbrains.plugins.terminal.ShellTerminalWidget
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
+import org.jetbrains.plugins.terminal.view.TerminalSendTextBuilder
 import java.awt.datatransfer.StringSelection
 
 sealed interface TerminalInsertionResult {
@@ -16,43 +19,100 @@ sealed interface TerminalInsertionResult {
 
 object TerminalPromptInserter {
     fun insert(project: Project, prompt: String): TerminalInsertionResult {
-        val widget = findActiveTerminalWidget(project)
-            ?: return copyToClipboard("No active compatible terminal session was found. Prompt copied to clipboard.", prompt)
-
         return try {
-            widget.executeWithTtyConnector { connector ->
-                connector.write(prompt)
+            if (writePromptToSelectedTerminal(project, prompt)) {
+                TerminalInsertionResult.Inserted
+            } else {
+                copyToClipboard("No active compatible terminal session was found. Prompt copied to clipboard.", prompt)
             }
-            TerminalInsertionResult.Inserted
         } catch (error: Exception) {
             copyToClipboard(error.message ?: "Terminal insertion failed. Prompt copied to clipboard.", prompt)
         }
     }
 
-    private fun findActiveTerminalWidget(project: Project): ShellTerminalWidget? {
+    private fun writePromptToSelectedTerminal(project: Project, prompt: String): Boolean {
+        return writePromptToCandidates(
+            terminalViewBuilder = findSelectedTerminalView(project)?.let { terminalView ->
+                { terminalView.createSendTextBuilder() }
+            },
+            ttyConnectorAccessor = findActiveTerminalWidget(project)?.ttyConnectorAccessor,
+            prompt = prompt,
+        )
+    }
+
+    private fun findSelectedTerminalView(project: Project): TerminalView? {
+        val selectedContent = TerminalToolWindowManager.getInstance(project)
+            .toolWindow
+            ?.contentManager
+            ?.selectedContent
+            ?: return null
+
+        return TerminalToolWindowTabsManager.getInstance(project)
+            .tabs
+            .firstOrNull { tab -> tab.content == selectedContent }
+            ?.view
+    }
+
+    private fun findActiveTerminalWidget(project: Project): TerminalWidget? {
         val manager = TerminalToolWindowManager.getInstance(project)
         val selectedWidget = manager.toolWindow
             ?.contentManager
             ?.selectedContent
-            ?.let(TerminalToolWindowManager::getWidgetByContent)
-            ?.let { widget -> asShellWidget(widget) }
+            ?.let(TerminalToolWindowManager::findWidgetByContent)
+            ?: manager.toolWindow
+                ?.contentManager
+                ?.selectedContent
+                ?.let(TerminalToolWindowManager::getWidgetByContent)
+                ?.asNewWidget()
 
-        if (selectedWidget != null) {
-            return selectedWidget
+        return pickPreferred(selectedWidget, manager.terminalWidgets)
+    }
+
+    internal fun <T> pickPreferred(
+        selectedValue: T?,
+        fallbackValues: Collection<T>,
+    ): T? {
+        return selectedValue ?: fallbackValues.firstOrNull()
+    }
+
+    internal fun sendPrompt(
+        builder: TerminalSendTextBuilder,
+        prompt: String,
+    ): Boolean {
+        builder
+            .useBracketedPasteMode()
+            .send(prompt)
+        return true
+    }
+
+    internal fun writePromptToCandidates(
+        terminalViewBuilder: (() -> TerminalSendTextBuilder)?,
+        ttyConnectorAccessor: TtyConnectorAccessor?,
+        prompt: String,
+        sendPrompt: (TerminalSendTextBuilder, String) -> Boolean = ::sendPrompt,
+        writePrompt: (TtyConnectorAccessor, String) -> Boolean = ::writePrompt,
+    ): Boolean {
+        val sentFromTerminalView = runCatching {
+            terminalViewBuilder?.let { sendPrompt(it(), prompt) } == true
+        }.getOrDefault(false)
+        if (sentFromTerminalView) {
+            return true
         }
 
-        return manager.terminalWidgets
-            .asSequence()
-            .mapNotNull { widget -> asShellWidget(widget) }
-            .firstOrNull()
+        val connectorAccessor = ttyConnectorAccessor ?: return false
+        return writePrompt(connectorAccessor, prompt)
     }
 
-    private fun asShellWidget(widget: JBTerminalWidget): ShellTerminalWidget? {
-        return widget as? ShellTerminalWidget
-    }
-
-    private fun asShellWidget(widget: TerminalWidget): ShellTerminalWidget? {
-        return widget as? ShellTerminalWidget ?: ShellTerminalWidget.asShellJediTermWidget(widget)
+    internal fun writePrompt(
+        ttyConnectorAccessor: TtyConnectorAccessor,
+        prompt: String,
+    ): Boolean {
+        var wrotePrompt = false
+        ttyConnectorAccessor.executeWithTtyConnector { connector ->
+            connector.write(prompt)
+            wrotePrompt = true
+        }
+        return wrotePrompt
     }
 
     private fun copyToClipboard(reason: String, prompt: String): TerminalInsertionResult {

@@ -6,7 +6,9 @@ plugins {
 group = "com.myrpasko"
 version = "0.1.0"
 
-val localIdePath = providers.environmentVariable("LOCAL_IDE_PATH").orNull
+val localIdePath = providers.gradleProperty("localIdePath")
+    .orElse(providers.environmentVariable("LOCAL_IDE_PATH"))
+    .orNull
 
 kotlin {
     jvmToolchain(21)

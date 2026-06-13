@@ -1,63 +1,33 @@
 # Task Slices
 
-## Slice 1. Research and Planning
+## Current Baseline
 
-- Inspect repo and memory bundle
-- Attach repo to Memory Core V5
-- Research JetBrains platform APIs and constraints
-- Write research report
-- Write PRD
-- Write development plan
-- Write testing strategy
+- `main` contains the original MVP merged from PR `#1`.
+- The current `main` working tree supports `SimpleDiffViewer` plus compatible local side-by-side change-list diff viewers.
+- Installable plugin packaging is verified through `buildPlugin` against the local WebStorm runtime.
 
-## Slice 2. Project Scaffold
+## Completed Slices
 
-- Create Gradle Kotlin DSL plugin project
-- Configure IntelliJ Platform Gradle Plugin `2.x`
-- Add plugin metadata/resources
-- Add bundled plugin dependencies required for Git diff and Terminal integration
-- Add base package layout
+- current-IDE portability and installation
+- local side-by-side diff checkpoint landing
+- lightweight line-anchored comment composer and submit cleanup
 
-## Slice 3. Core Domain
+## Slice 1. Terminal Compatibility Expansion
 
-- Implement `ReviewComment` model
-- Implement line/file formatting helpers
-- Implement prompt prefix settings service
-- Implement in-memory review comment store
-- Implement prompt builder
-- Implement terminal insertion abstraction and fallback contract
+- inspect the active terminal widget types exposed by current PyCharm/WebStorm builds
+- extend widget resolution beyond classic shell-backed terminals if a safe API path exists
+- keep clipboard fallback as the default safe path for unsupported terminals
+- add regression coverage for terminal detection and fallback behavior
 
-## Slice 4. Diff UI Integration
+## Slice 2. Persistent Comment Indicators
 
-- Discover supported text diff viewers
-- Identify changed lines on the right/new side
-- Render hover-aware gutter affordance
-- Open comment dialog
-- Support add/update/remove behavior
-- Show bottom `Discard` and `Submit` actions
+- verify and harden the non-hover indicator for lines that already have review comments
+- keep add/edit/remove flows reachable from the indicator path
+- refresh indicators after add, update, remove, and discard actions
+- add focused tests or seam points for indicator refresh logic
 
-## Slice 5. Terminal Submission
+## Slice 3. Post-Stabilization Options
 
-- Resolve active terminal tool window/session
-- Insert generated prompt into active session
-- Handle missing/unsupported terminal cases safely
-
-## Slice 6. Testing
-
-- Prompt builder tests
-- Comment store tests
-- Formatting tests
-- Settings default/update tests
-- Discard behavior tests
-- Edge case tests
-
-## Slice 7. Documentation and Closeout
-
-- Update README
-- Curate verification commands
-- Update current state canon
-- Create Obsidian project notes
-- Run build/tests
-- Commit
-- Open PR
-- Merge if stable
+- evaluate unified diff support as a separate slice
+- decide whether review comments should persist across IDE restart
+- reassess the manual diff UI verification strategy after the first stabilization slices land

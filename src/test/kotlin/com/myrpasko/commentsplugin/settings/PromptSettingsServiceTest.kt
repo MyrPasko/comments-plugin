@@ -12,6 +12,13 @@ class PromptSettingsServiceTest {
     }
 
     @Test
+    fun `success popup is shown by default`() {
+        val service = PromptSettingsService()
+
+        assertEquals(true, service.showSuccessPopup)
+    }
+
+    @Test
     fun `custom prefix is stored`() {
         val service = PromptSettingsService()
 
@@ -27,5 +34,14 @@ class PromptSettingsServiceTest {
         service.promptPrefix = "   "
 
         assertEquals(PromptSettingsService.DEFAULT_PROMPT_PREFIX, service.promptPrefix)
+    }
+
+    @Test
+    fun `success popup preference is stored`() {
+        val service = PromptSettingsService()
+
+        service.showSuccessPopup = false
+
+        assertEquals(false, service.showSuccessPopup)
     }
 }
