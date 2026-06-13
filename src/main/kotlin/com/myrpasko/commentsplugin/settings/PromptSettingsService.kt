@@ -14,6 +14,7 @@ import com.intellij.openapi.components.Storage
 class PromptSettingsService : SerializablePersistentStateComponent<PromptSettingsService.State>(State()) {
     data class State(
         @JvmField val promptPrefix: String = DEFAULT_PROMPT_PREFIX,
+        @JvmField val showSuccessPopup: Boolean = true,
     )
 
     var promptPrefix: String
@@ -24,8 +25,15 @@ class PromptSettingsService : SerializablePersistentStateComponent<PromptSetting
             }
         }
 
+    var showSuccessPopup: Boolean
+        get() = state.showSuccessPopup
+        set(value) {
+            updateState { current ->
+                current.copy(showSuccessPopup = value)
+            }
+        }
+
     companion object {
         const val DEFAULT_PROMPT_PREFIX = "Fix these comments:"
     }
 }
-

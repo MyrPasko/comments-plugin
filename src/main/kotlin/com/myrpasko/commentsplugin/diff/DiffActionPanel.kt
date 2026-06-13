@@ -1,7 +1,9 @@
 package com.myrpasko.commentsplugin.diff
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.DoNotAskOption
 import com.intellij.openapi.ui.Messages
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
@@ -13,17 +15,22 @@ import com.myrpasko.commentsplugin.terminal.TerminalInsertionResult
 import com.myrpasko.commentsplugin.terminal.TerminalPromptInserter
 import java.awt.FlowLayout
 import javax.swing.JButton
+import javax.swing.UIManager
 
 class DiffActionPanel(
     project: Project,
     private val store: ReviewCommentStore,
-) : JBPanel<DiffActionPanel>(FlowLayout(FlowLayout.RIGHT, 8, 6)), ReviewCommentStore.Listener {
+) : JBPanel<DiffActionPanel>(FlowLayout(FlowLayout.RIGHT, 8, 6)), ReviewCommentStore.Listener, Disposable {
     private val countLabel = JBLabel()
+    private val panelFont = UIManager.getFont("Label.font")
 
     init {
+        isOpaque = false
+        countLabel.font = panelFont
         add(countLabel)
         add(
             JButton("Discard").apply {
+                font = panelFont
                 addActionListener {
                     store.discardAll()
                 }
@@ -31,6 +38,7 @@ class DiffActionPanel(
         )
         add(
             JButton("Submit").apply {
+                font = panelFont
                 addActionListener {
                     submit(project)
                 }
@@ -42,6 +50,10 @@ class DiffActionPanel(
 
     override fun commentsChanged() {
         updateCount()
+    }
+
+    override fun dispose() {
+        store.removeListener(this)
     }
 
     private fun updateCount() {
@@ -62,11 +74,8 @@ class DiffActionPanel(
 
         when (val insertionResult = TerminalPromptInserter.insert(project, prompt)) {
             TerminalInsertionResult.Inserted -> {
-                Messages.showInfoMessage(
-                    project,
-                    "Prompt inserted into the active terminal session.",
-                    "Comments Plugin",
-                )
+                store.discardAll()
+                showSuccessConfirmation(project, settings)
             }
 
             is TerminalInsertionResult.CopiedToClipboard -> {
@@ -85,5 +94,35 @@ class DiffActionPanel(
                 )
             }
         }
+    }
+
+    private fun showSuccessConfirmation(project: Project, settings: PromptSettingsService) {
+        if (!settings.showSuccessPopup) {
+            return
+        }
+
+        Messages.showDialog(
+            project,
+            "Prompt inserted into the active terminal session. Review comments were cleared.",
+            "Comments Plugin",
+            arrayOf(Messages.getOkButton()),
+            0,
+            Messages.getInformationIcon(),
+            object : DoNotAskOption {
+                override fun isToBeShown(): Boolean = settings.showSuccessPopup
+
+                override fun setToBeShown(value: Boolean, exitCode: Int) {
+                    if (exitCode == Messages.OK) {
+                        settings.showSuccessPopup = value
+                    }
+                }
+
+                override fun canBeHidden(): Boolean = true
+
+                override fun shouldSaveOptionsOnCancel(): Boolean = false
+
+                override fun getDoNotShowMessage(): String = "Never show this info again"
+            },
+        )
     }
 }

@@ -51,8 +51,8 @@ Provide an in-IDE pre-commit review workflow for changed lines in diff views:
 
 - Only changed lines in supported text diff viewers are commentable.
 - A plus icon appears on hover over the target line gutter area.
-- Clicking the plus icon opens a simple comment dialog.
-- The dialog contains:
+- Clicking the plus icon opens a small comment input near the selected diff line.
+- The inline input contains:
   - text input,
   - `Remove`,
   - `Cancel`,
@@ -103,7 +103,7 @@ Fix these comments:
 
 - Minimal friction
 - Clear feedback on comment creation, update, submit, discard, and terminal insertion failure
-- No heavy modal workflow beyond the comment dialog
+- No heavy modal workflow; comment entry must stay close to the code change
 
 ## Quality Requirements
 
@@ -111,6 +111,7 @@ Fix these comments:
 - Isolated business logic
 - Graceful handling of unsupported viewers or missing terminal integration
 - Strong test coverage for formatting and state logic
+- Installable portability: the plugin must be packageable as a ZIP that can be added to the developer's current JetBrains IDE and run there.
 
 ## Success Criteria
 
@@ -119,6 +120,7 @@ Fix these comments:
 - The prompt prefix can be changed in Settings.
 - `Discard` clears the session.
 - `Submit` inserts the prompt into a compatible open terminal session or provides a safe fallback.
+- A developer can build an installable plugin ZIP and add it to the current IDE with `Install Plugin from Disk...`.
 
 ## Known Constraints
 

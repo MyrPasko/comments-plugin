@@ -3,98 +3,58 @@
 ## Classification
 
 - Task type: `feature`
-- Scope: medium-to-large greenfield plugin slice
+- Scope: medium terminal-compatibility slice
 
 ## Exact References
 
-- `docs/research/jetbrains-platform-research.md`
-- `docs/PRD.md`
-- `README.md`
-- `.gitignore`
-- Gradle/plugin scaffold files to be created at repo root
-- `src/main/kotlin/**`
-- `src/main/resources/**`
-- `src/test/kotlin/**`
-- `src/test/resources/**` if needed
 - `.project-memory/canon/current-state.md`
 - `.project-memory/verify-commands.md`
+- `README.md`
+- `docs/task-slices.md`
+- `src/main/kotlin/com/myrpasko/commentsplugin/terminal/TerminalPromptInserter.kt`
+- `src/main/kotlin/com/myrpasko/commentsplugin/diff/DiffActionPanel.kt`
+- `src/test/kotlin/com/myrpasko/commentsplugin/**`
 
 ## Write Scope
 
-- Scaffold the plugin project from current JetBrains best practices.
-- Implement the MVP plugin and tests.
-- Update repo docs and README.
-- Curate memory canon files only for project reality and verification commands.
-- Add Obsidian project notes in the selected project location.
+- Extend terminal widget detection beyond the currently supported classic shell-backed path when a safe API path exists.
+- Preserve clipboard fallback for unsupported or missing terminal sessions.
+- Add focused regression coverage for terminal widget resolution and fallback behavior where the surface is testable.
+- Update repo docs and canon after verification.
 
 ## Forbidden Moves
 
-- Do not add unrelated product features.
-- Do not persist review comments across restarts in MVP.
-- Do not hardcode absolute paths other than the user-provided memory bundle path already used.
-- Do not claim support for all diff viewer variants if only text diff viewers are implemented.
-- Do not silently create a new terminal session on submit if a user expects insertion into an existing one.
-- Do not rely on undocumented platform internals without a graceful fallback path.
+- Do not widen this slice into persistent indicator work.
+- Do not widen this slice into more diff viewer support.
+- Do not add unified diff support.
+- Do not silently create a terminal session when no compatible active session exists.
+- Do not claim terminal compatibility beyond the IDE/runtime paths actually verified.
 
 ## Verification Surface
 
-Planned verification commands:
+- `env JAVA_HOME=/Users/myroslavpasko/Applications/WebStorm.app/Contents/jbr/Contents/Home LOCAL_IDE_PATH=/Users/myroslavpasko/Applications/WebStorm.app ./gradlew test`
+- `env GRADLE_USER_HOME=.gradle-local JAVA_HOME=/Users/myroslavpasko/Applications/WebStorm.app/Contents/jbr/Contents/Home LOCAL_IDE_PATH=/Users/myroslavpasko/Applications/WebStorm.app ./gradlew buildPlugin`
+- manual verification in the active PyCharm or WebStorm terminal path once the widget-resolution change lands
 
-- `./gradlew test`
-- `./gradlew build`
-- any additional focused check task if introduced by the scaffold
-
-These will be written into `/.project-memory/verify-commands.md` once the build surface exists.
+Use `/.project-memory/verify-commands.md` as the exact command source if the command surface changes.
 
 ## Success Criteria
 
-1. Project builds as a valid IntelliJ Platform plugin.
-2. Settings page exists and persists prompt prefix.
-3. Review comment session state supports add, update/remove, list, and discard.
-4. Prompt builder formats output correctly across edge cases.
-5. Supported diff viewers expose the add-comment interaction on changed lines.
-6. Submit inserts text into a compatible open terminal session or shows a clear fallback.
-7. Tests cover the required core behaviors.
-8. README explains usage, setup, testing, limitations, and future work.
+1. Prompt insertion succeeds for the active current-IDE terminal implementation when a safe supported widget is present.
+2. Unsupported terminal implementations still fall back cleanly to clipboard copy.
+3. Automated verification passes and manual terminal verification is recorded when rerun.
+4. Repo docs and canon describe the terminal support boundary accurately.
 
 ## Slice Restrictions
 
-### Slice 1
+### Active Slice
 
-Documentation and scaffold only:
+- inspect and widen terminal widget resolution
+- preserve clipboard fallback behavior
+- add verification and docs for the supported terminal paths
 
-- research report
-- PRD
-- plan
-- task slicing
-- testing strategy
-- project setup
+### Deferred
 
-### Slice 2
-
-Core business logic:
-
-- settings
-- models
-- store
-- formatter
-- terminal abstraction
-
-### Slice 3
-
-JetBrains integration:
-
-- diff integration
-- gutter/comment dialog
-- bottom actions
-- settings UI
-
-### Slice 4
-
-Verification and closeout:
-
-- tests
-- build fixes
-- README
-- memory closeout
-- git/PR workflow
+- persistent comment indicators
+- unified diff support
+- persisted review sessions
