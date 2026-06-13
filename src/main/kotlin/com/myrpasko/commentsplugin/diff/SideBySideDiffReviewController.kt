@@ -12,7 +12,6 @@ import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.RangeHighlighter
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
-import com.myrpasko.commentsplugin.model.CommentLocation
 import com.myrpasko.commentsplugin.model.ReviewComment
 import com.myrpasko.commentsplugin.review.ReviewCommentStore
 import java.awt.BorderLayout
@@ -30,31 +29,20 @@ class SideBySideDiffReviewController(
     private val adapter: DiffViewerAdapter,
     private val store: ReviewCommentStore,
 ) : Disposable, ReviewCommentStore.Listener {
-    private val editor: EditorEx = adapter.rightEditor
-    private var commentableLines: Set<Int> = emptySet()
-    private var hoverLine: Int? = null
-    private var hoverHighlighter: RangeHighlighter? = null
-    private var activePopupLine: Int? = null
+    private var anchorsById: Map<String, DiffCommentAnchor> = emptyMap()
+    private var anchorsByEditorAndLine: Map<EditorEx, Map<Int, DiffCommentAnchor>> = emptyMap()
+    private val editorListeners = linkedMapOf<EditorEx, EditorListeners>()
+    private val commentHighlighters = linkedMapOf<EditorEx, MutableMap<String, RangeHighlighter>>()
+    private var hoverAnchorId: String? = null
+    private var hoverHighlighter: HoverHighlighter? = null
+    private var activePopupAnchorId: String? = null
     private var activePopup: com.intellij.openapi.ui.popup.JBPopup? = null
-    private val commentHighlighters = linkedMapOf<Int, RangeHighlighter>()
     private var actionPanel: DiffActionPanel? = null
     private var actionSurface: ActionSurfaceAttachment? = null
 
     private val viewerListener = object : DiffViewerListener() {
         override fun onAfterRediff() {
-            refreshCommentableLines()
-        }
-    }
-
-    private val gutterMotionListener = object : MouseMotionAdapter() {
-        override fun mouseMoved(event: MouseEvent) {
-            updateHover(event.y)
-        }
-    }
-
-    private val gutterMouseListener = object : MouseAdapter() {
-        override fun mouseExited(event: MouseEvent) {
-            clearHover()
+            refreshCommentAnchors()
         }
     }
 
@@ -62,19 +50,18 @@ class SideBySideDiffReviewController(
         installActionSurface()
         registerViewerListener()
         store.addListener(this)
-        refreshCommentableLines()
+        refreshCommentAnchors()
     }
 
     override fun dispose() {
         store.removeListener(this)
-        editor.gutterComponentEx.removeMouseMotionListener(gutterMotionListener)
-        editor.gutterComponentEx.removeMouseListener(gutterMouseListener)
+        unregisterAllEditorListeners()
         unregisterViewerListener()
         clearHover()
         clearCommentIndicators()
         activePopup?.cancel()
         activePopup = null
-        activePopupLine = null
+        activePopupAnchorId = null
         actionSurface?.dispose()
         actionSurface = null
         actionPanel?.dispose()
@@ -82,7 +69,7 @@ class SideBySideDiffReviewController(
     }
 
     override fun commentsChanged() {
-        if (hoverLine?.let(::lineHasComment) == true) {
+        if (hoverAnchorId?.let(::anchorHasComment) == true) {
             clearHover()
         }
         refreshCommentIndicators()
@@ -149,127 +136,168 @@ class SideBySideDiffReviewController(
         viewer.removeListener(viewerListener)
     }
 
-    private fun refreshCommentableLines() {
-        val nextLines = adapter.collectChangedLines()
-        val hadLines = commentableLines.isNotEmpty()
-        val hasLines = nextLines.isNotEmpty()
-        commentableLines = nextLines
+    private fun refreshCommentAnchors() {
+        val nextAnchors = adapter.collectCommentAnchors()
+        anchorsById = nextAnchors.associateBy(DiffCommentAnchor::id)
+        anchorsByEditorAndLine = nextAnchors
+            .groupBy(DiffCommentAnchor::editor)
+            .mapValues { (_, anchors) -> anchors.associateBy(DiffCommentAnchor::editorLine) }
+
+        syncEditorListeners()
         refreshCommentIndicators()
 
-        if (!hadLines && hasLines) {
-            editor.gutterComponentEx.addMouseMotionListener(gutterMotionListener)
-            editor.gutterComponentEx.addMouseListener(gutterMouseListener)
-            return
-        }
-
-        if (hadLines && !hasLines) {
-            editor.gutterComponentEx.removeMouseMotionListener(gutterMotionListener)
-            editor.gutterComponentEx.removeMouseListener(gutterMouseListener)
+        if (hoverAnchorId != null && hoverAnchorId !in anchorsById) {
             clearHover()
         }
     }
 
-    private fun refreshCommentIndicators() {
-        val targetLines = store.getAll()
-            .asSequence()
-            .filter { comment -> comment.filePath == adapter.filePath }
-            .map { comment -> comment.lineNumber - 1 }
-            .filter { line -> line in commentableLines }
-            .toSet()
-
-        val removedLines = commentHighlighters.keys - targetLines
-        removedLines.forEach { line ->
-            commentHighlighters.remove(line)?.let(editor.markupModel::removeHighlighter)
+    private fun syncEditorListeners() {
+        val nextEditors = anchorsByEditorAndLine.keys
+        val removedEditors = editorListeners.keys - nextEditors
+        removedEditors.forEach { editor ->
+            editorListeners.remove(editor)?.dispose()
         }
 
-        targetLines.forEach { line ->
-            if (commentHighlighters.containsKey(line)) {
+        nextEditors.forEach { editor ->
+            if (editorListeners.containsKey(editor)) {
                 return@forEach
             }
 
-            val highlighter = editor.markupModel.addLineHighlighter(line, HighlighterLayer.SELECTION - 2, null)
-            highlighter.gutterIconRenderer = CommentIconRenderer(line)
-            commentHighlighters[line] = highlighter
+            val motionListener = object : MouseMotionAdapter() {
+                override fun mouseMoved(event: MouseEvent) {
+                    updateHover(editor, event.y)
+                }
+            }
+            val mouseListener = object : MouseAdapter() {
+                override fun mouseExited(event: MouseEvent) {
+                    if (hoverHighlighter?.editor == editor) {
+                        clearHover()
+                    }
+                }
+            }
+
+            editor.gutterComponentEx.addMouseMotionListener(motionListener)
+            editor.gutterComponentEx.addMouseListener(mouseListener)
+            editorListeners[editor] = EditorListeners(editor, motionListener, mouseListener)
         }
-        editor.gutterComponentEx.revalidate()
-        editor.gutterComponentEx.repaint()
+    }
+
+    private fun unregisterAllEditorListeners() {
+        editorListeners.values.forEach(EditorListeners::dispose)
+        editorListeners.clear()
+    }
+
+    private fun refreshCommentIndicators() {
+        val targetIds = store.getAll()
+            .asSequence()
+            .map(ReviewComment::id)
+            .filter(anchorsById::containsKey)
+            .toSet()
+
+        commentHighlighters.forEach { (editor, highlightersById) ->
+            val removedIds = highlightersById.keys - targetIds
+            removedIds.forEach { id ->
+                highlightersById.remove(id)?.let(editor.markupModel::removeHighlighter)
+            }
+        }
+
+        targetIds.forEach { id ->
+            if (commentHighlighters.values.any { highlighters -> id in highlighters }) {
+                return@forEach
+            }
+
+            val anchor = anchorsById[id] ?: return@forEach
+            val highlighter = anchor.editor.markupModel.addLineHighlighter(anchor.editorLine, HighlighterLayer.SELECTION - 2, null)
+            highlighter.gutterIconRenderer = CommentIconRenderer(id)
+            commentHighlighters.getOrPut(anchor.editor) { linkedMapOf() }[id] = highlighter
+        }
+
+        commentHighlighters.keys.forEach { editor ->
+            editor.gutterComponentEx.revalidate()
+            editor.gutterComponentEx.repaint()
+        }
     }
 
     private fun clearCommentIndicators() {
-        commentHighlighters.values.forEach(editor.markupModel::removeHighlighter)
+        commentHighlighters.forEach { (editor, highlightersById) ->
+            highlightersById.values.forEach(editor.markupModel::removeHighlighter)
+            editor.gutterComponentEx.revalidate()
+            editor.gutterComponentEx.repaint()
+        }
         commentHighlighters.clear()
-        editor.gutterComponentEx.revalidate()
-        editor.gutterComponentEx.repaint()
     }
 
-    private fun updateHover(y: Int) {
-        val line = hoveredCommentableLine(y) ?: run {
-            clearHover()
+    private fun updateHover(editor: EditorEx, y: Int) {
+        val anchor = hoveredAnchor(editor, y) ?: run {
+            if (hoverHighlighter?.editor == editor) {
+                clearHover()
+            }
             return
         }
 
-        if (lineHasComment(line)) {
-            clearHover()
+        if (anchorHasComment(anchor.id)) {
+            if (hoverHighlighter?.editor == editor) {
+                clearHover()
+            }
             return
         }
 
-        if (hoverLine == line) {
+        if (hoverAnchorId == anchor.id) {
             return
         }
 
         clearHover()
-        hoverLine = line
+        hoverAnchorId = anchor.id
 
-        val highlighter = editor.markupModel.addLineHighlighter(line, HighlighterLayer.SELECTION - 1, null)
-        highlighter.gutterIconRenderer = HoverIconRenderer(line)
-        hoverHighlighter = highlighter
+        val highlighter = editor.markupModel.addLineHighlighter(anchor.editorLine, HighlighterLayer.SELECTION - 1, null)
+        highlighter.gutterIconRenderer = HoverIconRenderer(anchor.id)
+        hoverHighlighter = HoverHighlighter(editor, highlighter)
     }
 
     private fun clearHover() {
-        hoverLine = null
-        hoverHighlighter?.let(editor.markupModel::removeHighlighter)
+        val currentHover = hoverHighlighter
+        hoverAnchorId = null
+        currentHover?.highlighter?.let(currentHover.editor.markupModel::removeHighlighter)
         hoverHighlighter = null
     }
 
-    private fun hoveredCommentableLine(y: Int): Int? {
-        if (commentableLines.isEmpty()) {
-            return null
-        }
-
+    private fun hoveredAnchor(editor: EditorEx, y: Int): DiffCommentAnchor? {
+        val anchorsByLine = anchorsByEditorAndLine[editor] ?: return null
         val visualLine = editor.yToVisualLine(y)
         val line = editor.visualToLogicalPosition(VisualPosition(visualLine, 0)).line
-        return line.takeIf(commentableLines::contains)
+        return anchorsByLine[line]
     }
 
-    private fun openCommentInput(line: Int) {
-        if (activePopupLine == line && activePopup?.isDisposed == false) {
+    private fun openCommentInput(anchorId: String) {
+        val anchor = anchorsById[anchorId] ?: return
+        if (activePopupAnchorId == anchorId && activePopup?.isDisposed == false) {
             return
         }
 
         activePopup?.cancel()
-        val location = CommentLocation(adapter.filePath, line + 1)
-        val existing = store.find(location)
-        activePopupLine = line
+        val existing = store.find(anchorId)
+        activePopupAnchorId = anchorId
         activePopup = CommentInputPopup.show(
             project = project,
-            editor = editor,
-            line = line,
+            editor = anchor.editor,
+            line = anchor.editorLine,
             initialText = existing?.commentText,
             allowRemove = existing != null,
             onSubmit = { text ->
                 store.upsert(
                     ReviewComment(
-                        id = location.id(),
-                        filePath = location.filePath,
-                        lineNumber = location.lineNumber,
+                        id = anchor.id,
+                        filePath = anchor.filePath,
+                        lineNumber = anchor.lineNumber,
+                        lineLabel = anchor.lineLabel,
                         commentText = text,
-                        lineTextPreview = linePreview(line),
+                        lineTextPreview = linePreview(anchor),
                         viewerKind = adapter.viewerKind,
                     ),
                 )
             },
             onRemove = {
-                store.remove(location)
+                store.remove(anchor.id)
             },
         ).also { popup ->
             popup.addListener(
@@ -277,7 +305,7 @@ class SideBySideDiffReviewController(
                     override fun onClosed(event: com.intellij.openapi.ui.popup.LightweightWindowEvent) {
                         if (activePopup === popup) {
                             activePopup = null
-                            activePopupLine = null
+                            activePopupAnchorId = null
                         }
                     }
                 },
@@ -285,50 +313,45 @@ class SideBySideDiffReviewController(
         }
     }
 
-    private fun linePreview(line: Int): String? {
-        val document = editor.document
-        if (line < 0 || line >= document.lineCount) {
+    private fun linePreview(anchor: DiffCommentAnchor): String? {
+        val document = anchor.editor.document
+        if (anchor.editorLine < 0 || anchor.editorLine >= document.lineCount) {
             return null
         }
 
-        val startOffset = document.getLineStartOffset(line)
-        val endOffset = document.getLineEndOffset(line)
+        val startOffset = document.getLineStartOffset(anchor.editorLine)
+        val endOffset = document.getLineEndOffset(anchor.editorLine)
         return document.getText(com.intellij.openapi.util.TextRange(startOffset, endOffset)).trim().ifEmpty { null }
     }
 
-    private fun lineHasComment(line: Int): Boolean {
-        return store.find(CommentLocation(adapter.filePath, line + 1)) != null
-    }
+    private fun anchorHasComment(anchorId: String): Boolean = store.find(anchorId) != null
 
     private inner class HoverIconRenderer(
-        private val line: Int,
+        private val anchorId: String,
     ) : GutterIconRenderer() {
         override fun getIcon(): Icon = AllIcons.General.Add
 
         override fun getAlignment(): Alignment = Alignment.RIGHT
 
-        override fun getTooltipText(): String {
-            val hasComment = lineHasComment(line)
-            return if (hasComment) "Edit review comment" else "Add review comment"
-        }
+        override fun getTooltipText(): String = "Add review comment"
 
         override fun equals(other: Any?): Boolean {
-            return other is HoverIconRenderer && other.line == line
+            return other is HoverIconRenderer && other.anchorId == anchorId
         }
 
-        override fun hashCode(): Int = line
+        override fun hashCode(): Int = anchorId.hashCode()
 
         override fun getClickAction(): com.intellij.openapi.actionSystem.AnAction {
             return object : com.intellij.openapi.actionSystem.AnAction() {
                 override fun actionPerformed(event: com.intellij.openapi.actionSystem.AnActionEvent) {
-                    openCommentInput(line)
+                    openCommentInput(anchorId)
                 }
             }
         }
     }
 
     private inner class CommentIconRenderer(
-        private val line: Int,
+        private val anchorId: String,
     ) : GutterIconRenderer() {
         override fun getIcon(): Icon = AllIcons.General.Balloon
 
@@ -337,15 +360,15 @@ class SideBySideDiffReviewController(
         override fun getTooltipText(): String = "Edit review comment"
 
         override fun equals(other: Any?): Boolean {
-            return other is CommentIconRenderer && other.line == line
+            return other is CommentIconRenderer && other.anchorId == anchorId
         }
 
-        override fun hashCode(): Int = line
+        override fun hashCode(): Int = anchorId.hashCode()
 
         override fun getClickAction(): com.intellij.openapi.actionSystem.AnAction {
             return object : com.intellij.openapi.actionSystem.AnAction() {
                 override fun actionPerformed(event: com.intellij.openapi.actionSystem.AnActionEvent) {
-                    openCommentInput(line)
+                    openCommentInput(anchorId)
                 }
             }
         }
@@ -432,6 +455,22 @@ class SideBySideDiffReviewController(
     }
 
     private interface ActionSurfaceAttachment : Disposable
+
+    private data class HoverHighlighter(
+        val editor: EditorEx,
+        val highlighter: RangeHighlighter,
+    )
+
+    private data class EditorListeners(
+        val editor: EditorEx,
+        val motionListener: MouseMotionAdapter,
+        val mouseListener: MouseAdapter,
+    ) : Disposable {
+        override fun dispose() {
+            editor.gutterComponentEx.removeMouseMotionListener(motionListener)
+            editor.gutterComponentEx.removeMouseListener(mouseListener)
+        }
+    }
 
     private class PanelAttachment(
         private val panel: DiffActionPanel,

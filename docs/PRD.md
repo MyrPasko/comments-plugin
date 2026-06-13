@@ -50,6 +50,7 @@ Provide an in-IDE pre-commit review workflow for changed lines in diff views:
 ### Diff Commenting
 
 - Only changed lines in supported text diff viewers are commentable.
+- In side-by-side diff viewers, any visible current/right-side line may be commented and deleted lines may be commented from the left side.
 - A plus icon appears on hover over the target line gutter area.
 - Clicking the plus icon opens a small comment input near the selected diff line.
 - The inline input contains:
@@ -65,6 +66,7 @@ Each comment must store:
 
 - relative file path,
 - target line number,
+- display label for deleted-line anchors when the rendered prompt needs to distinguish them,
 - comment text,
 - enough diff/editor context to identify where the comment came from,
 - a stable in-memory id for mutation/removal during the active review session.
@@ -83,6 +85,12 @@ Each comment must store:
 
 ```text
 [relative/path/to/file:line] - comment text
+```
+
+- Deleted-line comments may render with an explicit deleted-line label, for example:
+
+```text
+[relative/path/to/file:27 deleted] - comment text
 ```
 
 ### Terminal Insertion
