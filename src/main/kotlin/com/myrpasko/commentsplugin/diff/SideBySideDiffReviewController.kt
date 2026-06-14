@@ -20,6 +20,7 @@ import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.awt.event.MouseMotionAdapter
 import java.lang.reflect.Method
+import javax.swing.JLabel
 import javax.swing.Icon
 import javax.swing.JComponent
 import javax.swing.JPanel
@@ -96,6 +97,7 @@ class SideBySideDiffReviewController(
 
     private fun installBottomPanel(panel: DiffActionPanel): Boolean {
         val statusPanel = findStatusPanel(adapter.viewer) ?: return false
+        shrinkSiblingStatusLabels(statusPanel, panel)
         statusPanel.add(
             panel,
             GridBagConstraints().apply {
@@ -451,6 +453,22 @@ class SideBySideDiffReviewController(
                 findToolbarComponent(childComponent)?.let { return it }
             }
             return null
+        }
+
+        private fun shrinkSiblingStatusLabels(
+            root: JComponent,
+            excludedSubtree: JComponent,
+        ) {
+            root.components.forEach { child ->
+                val childComponent = child as? JComponent ?: return@forEach
+                if (childComponent === excludedSubtree) {
+                    return@forEach
+                }
+                if (childComponent is JLabel) {
+                    childComponent.font = DiffActionPanel.compactPanelFont(childComponent.font)
+                }
+                shrinkSiblingStatusLabels(childComponent, excludedSubtree)
+            }
         }
     }
 

@@ -1,5 +1,6 @@
 package com.myrpasko.commentsplugin.diff
 
+import com.intellij.ide.ui.laf.darcula.ui.DarculaButtonUI
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
@@ -31,16 +32,16 @@ class DiffActionPanel(
     init {
         layout = BoxLayout(this, BoxLayout.X_AXIS)
         isOpaque = false
-        border = JBUI.Borders.empty(0, 0, 2, 0)
+        border = JBUI.Borders.empty(0, 0, 1, 0)
         countLabel.font = panelFont
-        countLabel.alignmentY = Component.BOTTOM_ALIGNMENT
+        countLabel.alignmentY = Component.CENTER_ALIGNMENT
         add(countLabel)
         add(Box.createHorizontalStrut(12))
         add(
             JButton("Discard").apply {
                 font = panelFont
-                alignmentY = Component.BOTTOM_ALIGNMENT
-                margin = JBUI.insets(3, 14)
+                alignmentY = Component.CENTER_ALIGNMENT
+                margin = JBUI.insets(2, 12)
                 addActionListener {
                     store.discardAll()
                 }
@@ -50,8 +51,9 @@ class DiffActionPanel(
         add(
             JButton("Submit").apply {
                 font = panelFont
-                alignmentY = Component.BOTTOM_ALIGNMENT
-                margin = JBUI.insets(3, 14)
+                alignmentY = Component.CENTER_ALIGNMENT
+                margin = JBUI.insets(2, 12)
+                putClientProperty(DarculaButtonUI.DEFAULT_STYLE_KEY, true)
                 addActionListener {
                     submit(project)
                 }
@@ -141,7 +143,7 @@ class DiffActionPanel(
 
     internal companion object {
         fun compactPanelFont(baseFont: Font): Font {
-            return baseFont.deriveFont((baseFont.size2D - 1f).coerceAtLeast(11f))
+            return baseFont.deriveFont((baseFont.size2D - 2f).coerceAtLeast(11f))
         }
     }
 }
