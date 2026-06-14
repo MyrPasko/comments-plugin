@@ -6,6 +6,7 @@ JetBrains IDE plugin prototype for pre-commit review comments on local diffs.
 
 - Adds a hover-triggered plus icon to visible side-by-side diff lines in supported diff views, including deleted lines on the left side.
 - Opens a small line-anchored comment popup near the selected code change.
+- Lets you submit a comment from the popup with `Cmd+Enter` on macOS or `Ctrl+Enter` on other platforms, with an inline hint below the input.
 - Collects comments across files in a project-scoped in-memory review session.
 - Builds a combined prompt in this format:
 
@@ -27,6 +28,7 @@ MVP support is still intentionally narrow, but local diff integration now covers
 
 - supported diff viewers: `SimpleDiffViewer` and compatible local side-by-side change-list diff viewers when the IDE exposes changed ranges through the standard text diff APIs
 - commentable lines: any visible line on the current/right side plus deleted lines on the left side
+- popup submit shortcut: `Cmd+Enter` on macOS, `Ctrl+Enter` elsewhere
 - prompt prefix setting: application-scoped
 - comment persistence: in-memory only for the current IDE session
 
@@ -109,6 +111,7 @@ Install it in your IDE with `Settings/Preferences > Plugins > gear icon > Instal
 - store upsert/remove/discard behavior
 - adapter classification for supported vs unsupported diff viewers
 - action-surface fallback selection for bottom vs toolbar placement
+- popup shortcut text and compact action-panel font sizing
 - terminal resolution fallback from selected frontend tabs to generic widget TTY accessors
 - prompt settings persistence for the success-confirmation preference
 
@@ -120,7 +123,7 @@ Install it in your IDE with `Settings/Preferences > Plugins > gear icon > Instal
 - Existing comments now stay reachable through a dedicated gutter message marker on changed lines, but the current packaged `main` build still needs manual re-verification in the IDE.
 - Terminal insertion now tries the selected frontend terminal tab first, retries through the generic `TerminalWidget` TTY-accessor path when the frontend send path is unavailable, and still falls back to clipboard copy when no compatible active session exists. Active current-IDE terminal flows still need manual re-verification after this compatibility hardening.
 - Review comments are not persisted across IDE restarts.
-- Prompt submission does not auto-send an Enter keystroke; it inserts/pastes the prompt content.
+- Prompt submission to the terminal does not auto-send an Enter keystroke; it inserts/pastes the prompt content.
 
 ## Future Improvements
 

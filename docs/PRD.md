@@ -53,6 +53,7 @@ Provide an in-IDE pre-commit review workflow for changed lines in diff views:
 - In side-by-side diff viewers, any visible current/right-side line may be commented and deleted lines may be commented from the left side.
 - A plus icon appears on hover over the target line gutter area.
 - Clicking the plus icon opens a small comment input near the selected diff line.
+- The inline input supports keyboard submission with `Cmd+Enter` on macOS and `Ctrl+Enter` on other platforms.
 - The inline input contains:
   - text input,
   - `Remove`,
@@ -112,6 +113,7 @@ Fix these comments:
 - Minimal friction
 - Clear feedback on comment creation, update, submit, discard, and terminal insertion failure
 - No heavy modal workflow; comment entry must stay close to the code change
+- The comment input should expose the keyboard submit shortcut near the text field.
 
 ## Quality Requirements
 

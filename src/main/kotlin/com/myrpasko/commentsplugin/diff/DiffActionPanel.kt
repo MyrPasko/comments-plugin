@@ -7,38 +7,51 @@ import com.intellij.openapi.ui.DoNotAskOption
 import com.intellij.openapi.ui.Messages
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
+import com.intellij.util.ui.JBUI
 import com.myrpasko.commentsplugin.prompt.PromptBuildResult
 import com.myrpasko.commentsplugin.prompt.PromptBuilder
 import com.myrpasko.commentsplugin.review.ReviewCommentStore
 import com.myrpasko.commentsplugin.settings.PromptSettingsService
 import com.myrpasko.commentsplugin.terminal.TerminalInsertionResult
 import com.myrpasko.commentsplugin.terminal.TerminalPromptInserter
-import java.awt.FlowLayout
+import java.awt.Component
+import java.awt.Font
+import javax.swing.Box
+import javax.swing.BoxLayout
 import javax.swing.JButton
 import javax.swing.UIManager
 
 class DiffActionPanel(
     project: Project,
     private val store: ReviewCommentStore,
-) : JBPanel<DiffActionPanel>(FlowLayout(FlowLayout.RIGHT, 8, 6)), ReviewCommentStore.Listener, Disposable {
+) : JBPanel<DiffActionPanel>(), ReviewCommentStore.Listener, Disposable {
     private val countLabel = JBLabel()
-    private val panelFont = UIManager.getFont("Label.font")
+    private val panelFont = compactPanelFont(UIManager.getFont("Label.font"))
 
     init {
+        layout = BoxLayout(this, BoxLayout.X_AXIS)
         isOpaque = false
+        border = JBUI.Borders.empty(0, 0, 2, 0)
         countLabel.font = panelFont
+        countLabel.alignmentY = Component.BOTTOM_ALIGNMENT
         add(countLabel)
+        add(Box.createHorizontalStrut(12))
         add(
             JButton("Discard").apply {
                 font = panelFont
+                alignmentY = Component.BOTTOM_ALIGNMENT
+                margin = JBUI.insets(3, 14)
                 addActionListener {
                     store.discardAll()
                 }
             },
         )
+        add(Box.createHorizontalStrut(8))
         add(
             JButton("Submit").apply {
                 font = panelFont
+                alignmentY = Component.BOTTOM_ALIGNMENT
+                margin = JBUI.insets(3, 14)
                 addActionListener {
                     submit(project)
                 }
@@ -124,5 +137,11 @@ class DiffActionPanel(
                 override fun getDoNotShowMessage(): String = "Never show this info again"
             },
         )
+    }
+
+    internal companion object {
+        fun compactPanelFont(baseFont: Font): Font {
+            return baseFont.deriveFont((baseFont.size2D - 1f).coerceAtLeast(11f))
+        }
     }
 }
