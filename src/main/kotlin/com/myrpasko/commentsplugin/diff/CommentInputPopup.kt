@@ -1,5 +1,6 @@
 package com.myrpasko.commentsplugin.diff
 
+import com.intellij.ide.ui.laf.darcula.ui.DarculaButtonUI
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.LogicalPosition
 import com.intellij.openapi.project.Project
@@ -121,6 +122,7 @@ object CommentInputPopup {
             )
             add(
                 JButton(submitLabel).apply {
+                    putClientProperty(DarculaButtonUI.DEFAULT_STYLE_KEY, true)
                     addActionListener { onSubmit() }
                 },
             )
