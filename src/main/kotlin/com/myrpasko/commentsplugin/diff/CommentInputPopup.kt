@@ -19,6 +19,7 @@ import java.awt.event.ActionEvent
 import java.awt.event.InputEvent
 import java.awt.event.KeyEvent
 import javax.swing.AbstractAction
+import javax.swing.JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT
 import java.awt.Point
 import javax.swing.JButton
 import javax.swing.JComponent
@@ -65,7 +66,7 @@ object CommentInputPopup {
                 popupRef[0]?.cancel()
             },
         )
-        bindSubmitShortcut(textArea, submitAction)
+        bindSubmitShortcut(content, submitAction)
 
         val popup = JBPopupFactory.getInstance()
             .createComponentPopupBuilder(content, textArea)
@@ -102,8 +103,10 @@ object CommentInputPopup {
         val hintLabel = JBLabel(submitShortcutHintText(submitLabel)).apply {
             font = font.deriveFont((font.size2D - 1f).coerceAtLeast(11f))
             foreground = shortcutHintColor()
+            border = JBUI.Borders.empty(2, 0, 0, 0)
         }
         val actions = JPanel(FlowLayout(FlowLayout.RIGHT, 8, 0)).apply {
+            isOpaque = false
             if (allowRemove) {
                 add(
                     JButton("Remove").apply {
@@ -122,32 +125,30 @@ object CommentInputPopup {
                 },
             )
         }
+        val footer = JPanel(BorderLayout(12, 0)).apply {
+            isOpaque = false
+            add(hintLabel, BorderLayout.WEST)
+            add(actions, BorderLayout.EAST)
+        }
 
         return JPanel(BorderLayout(0, 8)).apply {
             border = JBUI.Borders.compound(
                 JBUI.Borders.customLine(JBUI.CurrentTheme.CustomFrameDecorations.separatorForeground()),
                 JBUI.Borders.empty(10),
             )
-            preferredSize = Dimension(420, 160)
-            add(
-                JPanel(BorderLayout(0, 6)).apply {
-                    isOpaque = false
-                    add(JBScrollPane(textArea), BorderLayout.CENTER)
-                    add(hintLabel, BorderLayout.SOUTH)
-                },
-                BorderLayout.CENTER,
-            )
-            add(actions, BorderLayout.SOUTH)
+            preferredSize = Dimension(420, 170)
+            add(JBScrollPane(textArea), BorderLayout.CENTER)
+            add(footer, BorderLayout.SOUTH)
         }
     }
 
     private fun bindSubmitShortcut(
-        textArea: JBTextArea,
+        component: JComponent,
         onSubmit: () -> Unit,
     ) {
         val keyStroke = submitShortcutKeyStroke()
-        textArea.inputMap.put(keyStroke, SUBMIT_SHORTCUT_ACTION_KEY)
-        textArea.actionMap.put(
+        component.getInputMap(WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(keyStroke, SUBMIT_SHORTCUT_ACTION_KEY)
+        component.actionMap.put(
             SUBMIT_SHORTCUT_ACTION_KEY,
             object : AbstractAction() {
                 override fun actionPerformed(event: ActionEvent?) {

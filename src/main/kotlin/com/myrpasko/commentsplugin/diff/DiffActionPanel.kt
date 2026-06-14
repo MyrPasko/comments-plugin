@@ -31,7 +31,7 @@ class DiffActionPanel(
     init {
         layout = BoxLayout(this, BoxLayout.X_AXIS)
         isOpaque = false
-        border = JBUI.Borders.empty(0, 0, 2, 0)
+        border = JBUI.Borders.empty(0, 0, 1, 0)
         countLabel.font = panelFont
         countLabel.alignmentY = Component.BOTTOM_ALIGNMENT
         add(countLabel)
@@ -40,7 +40,7 @@ class DiffActionPanel(
             JButton("Discard").apply {
                 font = panelFont
                 alignmentY = Component.BOTTOM_ALIGNMENT
-                margin = JBUI.insets(3, 14)
+                margin = JBUI.insets(2, 12)
                 addActionListener {
                     store.discardAll()
                 }
@@ -51,7 +51,7 @@ class DiffActionPanel(
             JButton("Submit").apply {
                 font = panelFont
                 alignmentY = Component.BOTTOM_ALIGNMENT
-                margin = JBUI.insets(3, 14)
+                margin = JBUI.insets(2, 12)
                 addActionListener {
                     submit(project)
                 }
@@ -141,7 +141,7 @@ class DiffActionPanel(
 
     internal companion object {
         fun compactPanelFont(baseFont: Font): Font {
-            return baseFont.deriveFont((baseFont.size2D - 1f).coerceAtLeast(11f))
+            return baseFont.deriveFont((baseFont.size2D - 2f).coerceAtLeast(11f))
         }
     }
 }

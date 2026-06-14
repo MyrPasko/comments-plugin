@@ -102,8 +102,9 @@ class SideBySideDiffReviewController(
                 gridx = GridBagConstraints.RELATIVE
                 gridy = 0
                 weightx = 0.0
+                weighty = 1.0
                 fill = GridBagConstraints.NONE
-                anchor = GridBagConstraints.EAST
+                anchor = GridBagConstraints.SOUTHEAST
             },
         )
         statusPanel.revalidate()

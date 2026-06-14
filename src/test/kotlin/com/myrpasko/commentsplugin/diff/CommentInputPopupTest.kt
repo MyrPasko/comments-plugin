@@ -43,10 +43,10 @@ class CommentInputPopupTest {
 
 class DiffActionPanelTest {
     @Test
-    fun `compact panel font shrinks by one point`() {
+    fun `compact panel font shrinks by two points when possible`() {
         val compact = DiffActionPanel.compactPanelFont(Font("Dialog", Font.PLAIN, 14))
 
-        assertEquals(13f, compact.size2D)
+        assertEquals(12f, compact.size2D)
     }
 
     @Test
