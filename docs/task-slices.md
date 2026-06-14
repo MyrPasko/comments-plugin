@@ -12,6 +12,7 @@
 - local side-by-side diff checkpoint landing
 - lightweight line-anchored comment composer and submit cleanup
 - side-by-side any-line coverage on the current/right side plus deleted-line anchors on the left
+- popup keyboard submit shortcut and bottom action-panel alignment polish
 
 ## Slice 1. Terminal Compatibility Expansion
 
